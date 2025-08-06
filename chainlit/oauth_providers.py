@@ -172,9 +172,9 @@ class AzureADOAuthProvider(OAuthProvider):
         else "https://login.microsoftonline.us/common/oauth2/v2.0/authorize"
     )
     token_url = (
-        f"https://login.microsoftonline.com/{os.environ.get('OAUTH_AZURE_AD_TENANT_ID', '')}/oauth2/v2.0/token"
+        f"https://login.microsoftonline.us/{os.environ.get('OAUTH_AZURE_AD_TENANT_ID', '')}/oauth2/v2.0/token"
         if os.environ.get("OAUTH_AZURE_AD_ENABLE_SINGLE_TENANT")
-        else "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+        else "https://login.microsoftonline.us/common/oauth2/v2.0/token"
     )
 
     def __init__(self):
@@ -183,7 +183,7 @@ class AzureADOAuthProvider(OAuthProvider):
         self.authorize_params = {
             "tenant": os.environ.get("OAUTH_AZURE_AD_TENANT_ID"),
             "response_type": "code",
-            "scope": "https://graph.microsoft.com/User.Read offline_access",
+            "scope": "https://graph.microsoft.us/User.Read offline_access",
             "response_mode": "query",
         }
 
@@ -218,7 +218,7 @@ class AzureADOAuthProvider(OAuthProvider):
     async def get_user_info(self, token: str):
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                "https://graph.microsoft.com/v1.0/me",
+                "https://graph.microsoft.us/v1.0/me",
                 headers={"Authorization": f"Bearer {token}"},
             )
             response.raise_for_status()
@@ -227,7 +227,7 @@ class AzureADOAuthProvider(OAuthProvider):
 
             try:
                 photo_response = await client.get(
-                    "https://graph.microsoft.com/v1.0/me/photos/48x48/$value",
+                    "https://graph.microsoft.us/v1.0/me/photos/48x48/$value",
                     headers={"Authorization": f"Bearer {token}"},
                 )
                 photo_data = await photo_response.aread()
