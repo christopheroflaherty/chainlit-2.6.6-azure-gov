@@ -172,9 +172,9 @@ class AzureADOAuthProvider(OAuthProvider):
         else "https://login.microsoftonline.us/common/oauth2/v2.0/authorize"
     )
     token_url = (
-        f"https://login.microsoftonline.us/{os.environ.get('OAUTH_AZURE_AD_TENANT_ID', '')}/oauth2/v2.0/token"
+        f"https://login.microsoftonline.com/{os.environ.get('OAUTH_AZURE_AD_TENANT_ID', '')}/oauth2/v2.0/token"
         if os.environ.get("OAUTH_AZURE_AD_ENABLE_SINGLE_TENANT")
-        else "https://login.microsoftonline.us/common/oauth2/v2.0/token"
+        else "https://login.microsoftonline.com/common/oauth2/v2.0/token"
     )
 
     def __init__(self):
