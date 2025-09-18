@@ -23,15 +23,7 @@ from pydantic import BaseModel
 from pydantic.dataclasses import dataclass
 
 InputWidgetType = Literal[
-    "switch",
-    "slider",
-    "select",
-    "textinput",
-    "tags",
-    "numberinput",
-    "multiselect",
-    "checkbox",
-    "radio",
+    "switch", "slider", "select", "textinput", "tags", "numberinput"
 ]
 ToastType = Literal["info", "success", "warning", "error"]
 
@@ -54,9 +46,9 @@ class Pagination(BaseModel):
 
 
 class ThreadFilter(BaseModel):
-    feedback: Literal[0, 1] | None = None
-    userId: str | None = None
-    search: str | None = None
+    feedback: Optional[Literal[0, 1]] = None
+    userId: Optional[str] = None
+    search: Optional[str] = None
 
 
 @dataclass
@@ -219,11 +211,6 @@ class UpdateThreadRequest(BaseModel):
     name: str
 
 
-class ShareThreadRequest(BaseModel):
-    threadId: str
-    isShared: bool
-
-
 class DeleteThreadRequest(BaseModel):
     threadId: str
 
@@ -264,7 +251,7 @@ class ConnectStreamableHttpMCPRequest(BaseModel):
     name: str
     url: str
     # Optional HTTP headers to forward to the MCP transport (e.g. Authorization)
-    headers: Dict[str, str] | None = None
+    headers: Optional[Dict[str, str]] = None
 
 
 ConnectMCPRequest = Union[
@@ -306,7 +293,6 @@ class ChatProfile(DataClassJsonMixin):
     icon: Optional[str] = None
     default: bool = False
     starters: Optional[List[Starter]] = None
-    config_overrides: Any = None
 
 
 FeedbackStrategy = Literal["BINARY"]
@@ -343,4 +329,3 @@ class Feedback:
 
 class UpdateFeedbackRequest(BaseModel):
     feedback: Feedback
-    sessionId: str

@@ -22,8 +22,7 @@
         "form": {
           "email": {
             "label": "E-mailadres",
-            "required": "e-mail is een verplicht veld",
-          "placeholder": "me@example.com"
+            "required": "e-mail is een verplicht veld"
           },
           "password": {
             "label": "Wachtwoord",
@@ -77,16 +76,7 @@
         "errors": {
           "failed": "Uploaden mislukt",
           "cancelled": "Upload geannuleerd van"
-        },
-        "actions": {
-          "cancelUpload": "Annuleer upload",
-          "removeAttachment": "Verwijder bijlage"
         }
-      },
-      "commands": {
-        "button": "Hulpmiddelen",
-        "changeTool": "Wijzig hulpmiddel",
-        "availableTools": "Beschikbare hulpmiddelen"
       },
       "messages": {
         "status": {
@@ -105,8 +95,7 @@
           "edit": "Feedback bewerken",
           "dialog": {
             "title": "Voeg een opmerking toe",
-            "submit": "Feedback versturen",
-            "yourFeedback": "Je feedback..."
+            "submit": "Feedback versturen"
           },
           "status": {
             "updating": "Bijwerken",
@@ -120,8 +109,7 @@
         "show": "Toon geschiedenis"
       },
       "settings": {
-        "title": "Instellingenpaneel",
-        "customize": "Pas hier je chatinstellingen aan"
+        "title": "Instellingenpaneel"
       },
       "watermark": "LLM's kunnen fouten maken. Overweeg het controleren van belangrijke informatie."
     },
@@ -147,24 +135,10 @@
       "thread": {
         "untitled": "Naamloos gesprek",
         "menu": {
-          "rename": "Hernoemen",
-          "share": "Delen",
-          "delete": "Verwijderen"
+          "rename": "Rename",
+          "delete": "Delete"
         },
         "actions": {
-          "share": {
-            "title": "Deel link naar chat",
-            "button": "Delen",
-            "status": {
-              "copied": "Link gekopieerd",
-              "created": "Deellink gemaakt!",
-              "unshared": "Delen uitgeschakeld voor dit gesprek"
-            },
-            "error": {
-              "create": "Aanmaken van deellink mislukt",
-              "unshare": "Delen van gesprek stoppen mislukt"
-            }
-          },
           "delete": {
             "title": "Verwijdering bevestigen",
             "description": "Dit zal het gesprek en bijbehorende berichten en elementen verwijderen. Deze actie kan niet ongedaan worden gemaakt",
@@ -236,10 +210,5 @@
     "security": "Security",
     "beta": "Beta",
     "best-practice": "Best Practice"
-  },
-  "components": {
-    "MultiSelectInput": {
-      "placeholder": "Selecteer..."
-    }
   }
-}
+  }

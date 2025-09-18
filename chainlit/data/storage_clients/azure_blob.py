@@ -53,7 +53,6 @@ class AzureBlobStorageClient(BaseStorageClient):
         data: Union[bytes, str],
         mime: str = "application/octet-stream",
         overwrite: bool = True,
-        content_disposition: str | None = None,
     ) -> Dict[str, Any]:
         try:
             blob_client = self.container_client.get_blob_client(object_key)
@@ -61,9 +60,7 @@ class AzureBlobStorageClient(BaseStorageClient):
             if isinstance(data, str):
                 data = data.encode("utf-8")
 
-            content_settings = ContentSettings(
-                content_type=mime, content_disposition=content_disposition
-            )
+            content_settings = ContentSettings(content_type=mime)
 
             await blob_client.upload_blob(
                 data, overwrite=overwrite, content_settings=content_settings

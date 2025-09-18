@@ -17,8 +17,9 @@ from typing import (
 )
 
 import tomli
-from pydantic import BaseModel, Field
-from pydantic_settings import BaseSettings
+from dataclasses_json import DataClassJsonMixin
+from pydantic import Field
+from pydantic.dataclasses import dataclass
 from starlette.datastructures import Headers
 
 from chainlit.data.base import BaseDataLayer
@@ -78,14 +79,6 @@ user_session_timeout = 1296000  # 15 days
 # Enable third parties caching (e.g., LangChain cache)
 cache = false
 
-# Whether to persist user environment variables (API keys) to the database
-# Set to true to store user env vars in DB, false to exclude them for security
-persist_user_env = false
-
-# Whether to mask user environment variables (API keys) in the UI with password type
-# Set to true to show API keys as ***, false to show them as plain text
-mask_user_env = false
-
 # Authorized origins
 allow_origins = ["*"]
 
@@ -104,9 +97,6 @@ auto_tag_thread = true
 
 # Allow users to edit their own messages
 edit_message = true
-
-# Allow users to share threads (backend + UI). Requires an app-defined on_shared_thread_view callback.
-allow_thread_sharing = false
 
 [features.slack]
 # Add emoji reaction when message is received (requires reactions:write OAuth scope)
@@ -129,14 +119,8 @@ reaction_on_message_received = false
     max_size_mb = 500
 
 [features.audio]
-    # Enable audio features
-    enabled = false
     # Sample rate of the audio
     sample_rate = 24000
-
-[features.mcp]
-    # Enable Model Context Protocol (MCP) features
-    enabled = false
 
 [features.mcp.sse]
     enabled = true
@@ -223,7 +207,8 @@ DEFAULT_PORT = 8000
 DEFAULT_ROOT_PATH = ""
 
 
-class RunSettings(BaseModel):
+@dataclass()
+class RunSettings:
     # Name of the module (python file) used in the run command
     module_name: Optional[str] = None
     host: str = DEFAULT_HOST
@@ -238,54 +223,64 @@ class RunSettings(BaseModel):
     ci: bool = False
 
 
-class PaletteOptions(BaseModel):
+@dataclass()
+class PaletteOptions(DataClassJsonMixin):
     main: Optional[str] = ""
     light: Optional[str] = ""
     dark: Optional[str] = ""
 
 
-class TextOptions(BaseModel):
+@dataclass()
+class TextOptions(DataClassJsonMixin):
     primary: Optional[str] = ""
     secondary: Optional[str] = ""
 
 
-class Palette(BaseModel):
+@dataclass()
+class Palette(DataClassJsonMixin):
     primary: Optional[PaletteOptions] = None
     background: Optional[str] = ""
     paper: Optional[str] = ""
     text: Optional[TextOptions] = None
 
 
-class SpontaneousFileUploadFeature(BaseModel):
+@dataclass
+class SpontaneousFileUploadFeature(DataClassJsonMixin):
     enabled: Optional[bool] = None
     accept: Optional[Union[List[str], Dict[str, List[str]]]] = None
     max_files: Optional[int] = None
     max_size_mb: Optional[int] = None
 
 
-class AudioFeature(BaseModel):
+@dataclass
+class AudioFeature(DataClassJsonMixin):
     sample_rate: int = 24000
     enabled: bool = False
 
 
-class McpSseFeature(BaseModel):
+@dataclass
+class McpSseFeature(DataClassJsonMixin):
     enabled: bool = True
 
 
-class McpStreamableHttpFeature(BaseModel):
+@dataclass
+class McpStreamableHttpFeature(DataClassJsonMixin):
     enabled: bool = True
 
 
-class McpStdioFeature(BaseModel):
+@dataclass
+class McpStdioFeature(DataClassJsonMixin):
     enabled: bool = True
     allowed_executables: Optional[list[str]] = None
 
 
-class SlackFeature(BaseModel):
+@dataclass
+class SlackFeature(DataClassJsonMixin):
     reaction_on_message_received: bool = False
 
 
-class McpFeature(BaseModel):
+@dataclass
+class McpFeature(DataClassJsonMixin):
     enabled: bool = False
     sse: McpSseFeature = Field(default_factory=McpSseFeature)
     streamable_http: McpStreamableHttpFeature = Field(
@@ -294,7 +289,8 @@ class McpFeature(BaseModel):
     stdio: McpStdioFeature = Field(default_factory=McpStdioFeature)
 
 
-class FeaturesSettings(BaseModel):
+@dataclass()
+class FeaturesSettings(DataClassJsonMixin):
     spontaneous_file_upload: Optional[SpontaneousFileUploadFeature] = None
     audio: Optional[AudioFeature] = Field(default_factory=AudioFeature)
     mcp: McpFeature = Field(default_factory=McpFeature)
@@ -304,20 +300,22 @@ class FeaturesSettings(BaseModel):
     unsafe_allow_html: bool = False
     auto_tag_thread: bool = True
     edit_message: bool = True
-    allow_thread_sharing: bool = False
 
 
-class HeaderLink(BaseModel):
+@dataclass
+class HeaderLink(DataClassJsonMixin):
     name: str
     icon_url: str
     url: str
     display_name: Optional[str] = None
 
 
-class UISettings(BaseModel):
+@dataclass()
+class UISettings(DataClassJsonMixin):
     name: str
     description: str = ""
     cot: Literal["hidden", "tool_call", "full"] = "full"
+    font_family: Optional[str] = None
     default_theme: Optional[Literal["light", "dark"]] = "dark"
     layout: Optional[Literal["default", "wide"]] = "default"
     default_sidebar_state: Optional[Literal["open", "closed"]] = "open"
@@ -347,7 +345,8 @@ class UISettings(BaseModel):
     header_links: Optional[List[HeaderLink]] = None
 
 
-class CodeSettings(BaseModel):
+@dataclass()
+class CodeSettings:
     # App action functions
     action_callbacks: Dict[str, Callable[["Action"], Any]]
 
@@ -373,14 +372,11 @@ class CodeSettings(BaseModel):
     on_mcp_disconnect: Optional[Callable] = None
     on_settings_update: Optional[Callable[[Dict[str, Any]], Any]] = None
     set_chat_profiles: Optional[
-        Callable[[Optional["User"], Optional["str"]], Awaitable[List["ChatProfile"]]]
+        Callable[[Optional["User"]], Awaitable[List["ChatProfile"]]]
     ] = None
-    set_starters: Optional[
-        Callable[[Optional["User"], Optional["str"]], Awaitable[List["Starter"]]]
-    ] = None
-    on_shared_thread_view: Optional[
-        Callable[["ThreadDict", Optional["User"]], Awaitable[bool]]
-    ] = None
+    set_starters: Optional[Callable[[Optional["User"]], Awaitable[List["Starter"]]]] = (
+        None
+    )
     # Auth callbacks
     password_auth_callback: Optional[
         Callable[[str, str], Awaitable[Optional["User"]]]
@@ -398,7 +394,8 @@ class CodeSettings(BaseModel):
     data_layer: Optional[Callable[[], BaseDataLayer]] = None
 
 
-class ProjectSettings(BaseModel):
+@dataclass()
+class ProjectSettings(DataClassJsonMixin):
     allow_origins: List[str] = Field(default_factory=lambda: ["*"])
     # Socket.io client transports option
     transports: Optional[List[str]] = None
@@ -413,24 +410,15 @@ class ProjectSettings(BaseModel):
     user_session_timeout: int = 1296000  # 15 days
     # Enable third parties caching (e.g LangChain cache)
     cache: bool = False
-    # Whether to persist user environment variables (API keys) to the database
-    persist_user_env: Optional[bool] = False
-    # Whether to mask user environment variables (API keys) in the UI with password type
-    mask_user_env: Optional[bool] = False
 
 
-class ChainlitConfigOverrides(BaseModel):
-    """Configuration overrides that can be applied to specific chat profiles."""
-
-    ui: Optional[UISettings] = None
-    features: Optional[FeaturesSettings] = None
-    project: Optional[ProjectSettings] = None
-
-
-class ChainlitConfig(BaseSettings):
-    root: str = APP_ROOT
-    chainlit_server: str = Field(default="")
-    run: RunSettings = Field(default_factory=RunSettings)
+@dataclass()
+class ChainlitConfig:
+    # Directory where the Chainlit project is located
+    root = APP_ROOT
+    # Chainlit server URL. Used only for cloud features
+    chainlit_server: str
+    run: RunSettings
     features: FeaturesSettings
     ui: UISettings
     project: ProjectSettings
@@ -480,25 +468,8 @@ class ChainlitConfig(BaseSettings):
 
         return translation
 
-    def with_overrides(
-        self, overrides: "ChainlitConfigOverrides | None"
-    ) -> "ChainlitConfig":
-        base = self.model_dump()
-        patch = overrides.model_dump(exclude_unset=True) if overrides else {}
 
-        def _merge(a, b):
-            if isinstance(a, dict) and isinstance(b, dict):
-                out = dict(a)
-                for k, v in b.items():
-                    out[k] = _merge(out.get(k), v)
-                return out
-            return b
-
-        merged = _merge(base, patch) if patch else base
-        return type(self).model_validate(merged)
-
-
-def init_config(log: bool = False):
+def init_config(log=False):
     """Initialize the configuration file if it doesn't exist."""
     if not os.path.exists(config_file):
         os.makedirs(config_dir, exist_ok=True)
@@ -551,12 +522,10 @@ def load_module(target: str, force_refresh: bool = False):
 
     spec = util.spec_from_file_location(target, target)
     if not spec or not spec.loader:
-        sys.path.pop(0)
         return
 
     module = util.module_from_spec(spec)
     if not module:
-        sys.path.pop(0)
         return
 
     spec.loader.exec_module(module)
@@ -608,28 +577,29 @@ def reload_config():
     if config is None:
         return
 
-    # Preserve the module_name during config reload to ensure hot reload works
-    original_module_name = config.run.module_name if config.run else None
+    settings = load_settings()
 
-    new_cfg = ChainlitConfig(**load_settings())
-    config.root = new_cfg.root
-    config.chainlit_server = new_cfg.chainlit_server
-    config.run = new_cfg.run
-    config.features = new_cfg.features
-    config.ui = new_cfg.ui
-
-    # Restore the preserved module_name
-    if original_module_name and config.run:
-        config.run.module_name = original_module_name
-    config.project = new_cfg.project
-    config.code = new_cfg.code
+    config.features = settings["features"]
+    config.code = settings["code"]
+    config.ui = settings["ui"]
+    config.project = settings["project"]
 
 
 def load_config():
     """Load the configuration from the config file."""
     init_config()
+
     settings = load_settings()
-    return ChainlitConfig(**settings)
+
+    chainlit_server = os.environ.get("CHAINLIT_SERVER", "https://cloud.chainlit.io")
+
+    config = ChainlitConfig(
+        chainlit_server=chainlit_server,
+        run=RunSettings(),
+        **settings,
+    )
+
+    return config
 
 
 def lint_translations():
@@ -643,8 +613,8 @@ def lint_translations():
             if file.endswith(".json"):
                 # Load the translation file
                 to_lint = os.path.join(config_translation_dir, file)
-                with open(to_lint, encoding="utf-8") as f2:
-                    translation = json.load(f2)
+                with open(to_lint, encoding="utf-8") as f:
+                    translation = json.load(f)
 
                     # Lint the translation file
                     lint_translation_json(file, truth, translation)

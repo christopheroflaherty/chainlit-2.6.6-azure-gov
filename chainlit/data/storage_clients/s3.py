@@ -42,21 +42,11 @@ class S3StorageClient(BaseStorageClient):
         data: Union[bytes, str],
         mime: str = "application/octet-stream",
         overwrite: bool = True,
-        content_disposition: str | None = None,
     ) -> Dict[str, Any]:
         try:
-            if content_disposition is not None:
-                self.client.put_object(
-                    Bucket=self.bucket,
-                    Key=object_key,
-                    Body=data,
-                    ContentType=mime,
-                    ContentDisposition=content_disposition,
-                )
-            else:
-                self.client.put_object(
-                    Bucket=self.bucket, Key=object_key, Body=data, ContentType=mime
-                )
+            self.client.put_object(
+                Bucket=self.bucket, Key=object_key, Body=data, ContentType=mime
+            )
             endpoint = os.environ.get("DEV_AWS_ENDPOINT", "amazonaws.com")
             url = f"https://{self.bucket}.s3.{endpoint}/{object_key}"
             return {"object_key": object_key, "url": url}
@@ -70,10 +60,9 @@ class S3StorageClient(BaseStorageClient):
         data: Union[bytes, str],
         mime: str = "application/octet-stream",
         overwrite: bool = True,
-        content_disposition: str | None = None,
     ) -> Dict[str, Any]:
         return await make_async(self.sync_upload_file)(
-            object_key, data, mime, overwrite, content_disposition
+            object_key, data, mime, overwrite
         )
 
     def sync_delete_file(self, object_key: str) -> bool:

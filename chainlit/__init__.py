@@ -76,7 +76,6 @@ from .callbacks import (
     on_mcp_disconnect,
     on_message,
     on_settings_update,
-    on_shared_thread_view,
     on_stop,
     on_window_message,
     password_auth_callback,
@@ -122,7 +121,6 @@ __getattr__ = make_module_getattr(
         "instrument_openai": "chainlit.openai",
         "instrument_mistralai": "chainlit.mistralai",
         "SemanticKernelFilter": "chainlit.semantic_kernel",
-        "server": "chainlit.server",
     }
 )
 
@@ -191,7 +189,6 @@ __all__ = [
     "on_mcp_disconnect",
     "on_message",
     "on_settings_update",
-    "on_shared_thread_view",
     "on_stop",
     "on_window_message",
     "password_auth_callback",
