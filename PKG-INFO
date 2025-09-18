@@ -2,9 +2,6 @@ Metadata-Version: 2.4
 Name: chainlit
 Version: 2.8.0
 Summary: Build Conversational AI.
-Project-URL: Homepage, https://chainlit.io/
-Project-URL: Documentation, https://docs.chainlit.io/
-Project-URL: Repository, https://github.com/Chainlit/chainlit
 Author: Willy Douhard, Dan Andre Constantini
 License: Apache-2.0
 Keywords: Agents,LLM,MCP,chat ui,chatbot ui,conversational ai,copilot,gen ai,langchain,openai
