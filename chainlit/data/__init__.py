@@ -55,6 +55,7 @@ def get_data_layer():
                 # Azure Storage
                 azure_storage_account = os.getenv("APP_AZURE_STORAGE_ACCOUNT")
                 azure_storage_key = os.getenv("APP_AZURE_STORAGE_ACCESS_KEY")
+                azure_storage_base_url = os.getenv("APP_AZURE_STORAGE_BASE_URL")
                 is_using_azure = bool(azure_storage_account and azure_storage_key)
 
                 storage_client = None
@@ -91,6 +92,7 @@ def get_data_layer():
                         container_name=bucket_name,
                         storage_account=azure_storage_account,
                         storage_key=azure_storage_key,
+                        base_url=azure_storage_base_url,
                     )
 
                 _data_layer = ChainlitDataLayer(
