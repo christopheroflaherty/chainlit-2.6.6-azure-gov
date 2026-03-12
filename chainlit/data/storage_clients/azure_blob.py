@@ -13,6 +13,7 @@ class AzureBlobStorageClient(BaseStorageClient):
         self.container_name = container_name
         self.storage_account = storage_account
         self.storage_key = storage_key
+        self.base_url = base_url
         connection_string = (
             f"DefaultEndpointsProtocol=https;"
             f"AccountName={storage_account};"
