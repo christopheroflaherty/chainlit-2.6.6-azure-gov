@@ -18,12 +18,23 @@ if TYPE_CHECKING:
     from chainlit.element import ElementDict
     from chainlit.step import StepDict
 
+from dataclasses import field
+
 from dataclasses_json import DataClassJsonMixin
 from pydantic import BaseModel
 from pydantic.dataclasses import dataclass
 
 InputWidgetType = Literal[
-    "switch", "slider", "select", "textinput", "tags", "numberinput"
+    "switch",
+    "slider",
+    "select",
+    "textinput",
+    "tags",
+    "numberinput",
+    "multiselect",
+    "checkbox",
+    "radio",
+    "datepicker",
 ]
 ToastType = Literal["info", "success", "warning", "error"]
 
@@ -46,9 +57,9 @@ class Pagination(BaseModel):
 
 
 class ThreadFilter(BaseModel):
-    feedback: Optional[Literal[0, 1]] = None
-    userId: Optional[str] = None
-    search: Optional[str] = None
+    feedback: Literal[0, 1] | None = None
+    userId: str | None = None
+    search: str | None = None
 
 
 @dataclass
@@ -211,6 +222,11 @@ class UpdateThreadRequest(BaseModel):
     name: str
 
 
+class ShareThreadRequest(BaseModel):
+    threadId: str
+    isShared: bool
+
+
 class DeleteThreadRequest(BaseModel):
     threadId: str
 
@@ -251,7 +267,7 @@ class ConnectStreamableHttpMCPRequest(BaseModel):
     name: str
     url: str
     # Optional HTTP headers to forward to the MCP transport (e.g. Authorization)
-    headers: Optional[Dict[str, str]] = None
+    headers: Dict[str, str] | None = None
 
 
 ConnectMCPRequest = Union[
@@ -285,14 +301,25 @@ class Starter(DataClassJsonMixin):
 
 
 @dataclass
+class StarterCategory(DataClassJsonMixin):
+    """A category/group of starters with an optional icon."""
+
+    label: str
+    icon: Optional[str] = None
+    starters: List[Starter] = field(default_factory=list)
+
+
+@dataclass
 class ChatProfile(DataClassJsonMixin):
     """Specification for a chat profile that can be chosen by the user at the thread start."""
 
     name: str
     markdown_description: str
     icon: Optional[str] = None
+    display_name: Optional[str] = None
     default: bool = False
     starters: Optional[List[Starter]] = None
+    config_overrides: Any = None
 
 
 FeedbackStrategy = Literal["BINARY"]
@@ -309,6 +336,8 @@ class CommandDict(TypedDict):
     button: Optional[bool]
     # Whether the command will be persistent unless the user toggles it
     persistent: Optional[bool]
+    # Whether the command should be pre-selected when loaded
+    selected: Optional[bool]
 
 
 class FeedbackDict(TypedDict):
@@ -329,3 +358,4 @@ class Feedback:
 
 class UpdateFeedbackRequest(BaseModel):
     feedback: Feedback
+    sessionId: str

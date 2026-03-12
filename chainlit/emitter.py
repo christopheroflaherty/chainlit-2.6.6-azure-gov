@@ -10,11 +10,13 @@ from chainlit.data import get_data_layer
 from chainlit.element import Element, ElementDict, File
 from chainlit.logger import logger
 from chainlit.message import Message
+from chainlit.mode import Mode
 from chainlit.session import BaseSession, WebsocketSession
 from chainlit.step import StepDict
 from chainlit.types import (
     AskActionResponse,
     AskElementResponse,
+    AskFileSpec,
     AskSpec,
     CommandDict,
     FileDict,
@@ -141,12 +143,20 @@ class BaseChainlitEmitter:
         """Stub method to send the available commands to the UI."""
         pass
 
+    async def set_modes(self, modes: List[Mode]):
+        """Stub method to send the available modes to the UI."""
+        pass
+
     async def send_window_message(self, data: Any):
         """Stub method to send custom data to the host window."""
         pass
 
     def send_toast(self, message: str, type: Optional[ToastType] = "info"):
         """Stub method to send a toast message to the UI."""
+        pass
+
+    async def set_favorites(self, steps: List[StepDict]):
+        """Stub method to send the favorite messages to the UI."""
         pass
 
 
@@ -308,8 +318,11 @@ class ChainlitEmitter(BaseChainlitEmitter):
         self, step_dict: StepDict, spec: AskSpec, raise_on_timeout=False
     ):
         """Send a prompt to the UI and wait for a response."""
-
+        parent_id = str(step_dict["parentId"])
         try:
+            if spec.type == "file":
+                self.session.files_spec[parent_id] = cast(AskFileSpec, spec)
+
             # Send the prompt to the UI
             user_res = await self.emit_call(
                 "ask", {"msg": step_dict, "spec": spec.to_dict()}, spec.timeout
@@ -373,6 +386,8 @@ class ChainlitEmitter(BaseChainlitEmitter):
             if raise_on_timeout:
                 raise e
         finally:
+            if parent_id in self.session.files_spec:
+                del self.session.files_spec[parent_id]
             await self.task_start()
 
     async def send_call_fn(
@@ -430,6 +445,20 @@ class ChainlitEmitter(BaseChainlitEmitter):
         return self.emit(
             "set_commands",
             commands,
+        )
+
+    def set_modes(self, modes: List[Mode]):
+        """Send the available modes to the UI."""
+        return self.emit(
+            "set_modes",
+            [mode.to_dict() for mode in modes],
+        )
+
+    def set_favorites(self, steps: List[StepDict]):
+        """Send the favorite messages to the UI."""
+        return self.emit(
+            "set_favorites",
+            steps,
         )
 
     def send_window_message(self, data: Any):

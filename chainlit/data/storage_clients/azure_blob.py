@@ -9,7 +9,7 @@ from chainlit.logger import logger
 
 
 class AzureBlobStorageClient(BaseStorageClient):
-    def __init__(self, container_name: str, storage_account: str, storage_key: str):
+    def __init__(self, container_name: str, storage_account: str, storage_key: str, base_url: str):
         self.container_name = container_name
         self.storage_account = storage_account
         self.storage_key = storage_key
@@ -17,7 +17,7 @@ class AzureBlobStorageClient(BaseStorageClient):
             f"DefaultEndpointsProtocol=https;"
             f"AccountName={storage_account};"
             f"AccountKey={storage_key};"
-            f"EndpointSuffix=core.usgovcloudapi.net"
+            f"EndpointSuffix={base_url}"
         )
         self.service_client = AsyncBlobServiceClient.from_connection_string(
             connection_string
@@ -45,7 +45,7 @@ class AzureBlobStorageClient(BaseStorageClient):
             expiry=expiry_time,
         )
 
-        return f"https://{self.storage_account}.blob.core.usgovcloudapi.net/{self.container_name}/{object_key}?{sas_token}"
+        return f"https://{self.storage_account}.blob.{self.base_url}/{self.container_name}/{object_key}?{sas_token}"
 
     async def upload_file(
         self,
@@ -53,6 +53,7 @@ class AzureBlobStorageClient(BaseStorageClient):
         data: Union[bytes, str],
         mime: str = "application/octet-stream",
         overwrite: bool = True,
+        content_disposition: str | None = None,
     ) -> Dict[str, Any]:
         try:
             blob_client = self.container_client.get_blob_client(object_key)
@@ -60,7 +61,9 @@ class AzureBlobStorageClient(BaseStorageClient):
             if isinstance(data, str):
                 data = data.encode("utf-8")
 
-            content_settings = ContentSettings(content_type=mime)
+            content_settings = ContentSettings(
+                content_type=mime, content_disposition=content_disposition
+            )
 
             await blob_client.upload_blob(
                 data, overwrite=overwrite, content_settings=content_settings
@@ -89,3 +92,7 @@ class AzureBlobStorageClient(BaseStorageClient):
         except Exception as e:
             logger.warning(f"AzureBlobStorageClient, delete_file error: {e}")
             return False
+
+    async def close(self) -> None:
+        await self.container_client.close()
+        await self.service_client.close()

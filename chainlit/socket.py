@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import Any, Dict, Literal, Optional, Tuple, Union
+from typing import Any, Dict, Literal, Optional, Tuple, TypedDict, Union
 from urllib.parse import unquote
 
 from starlette.requests import cookie_parser
@@ -12,26 +12,39 @@ from chainlit.auth import (
     require_login,
 )
 from chainlit.chat_context import chat_context
-from chainlit.config import config
+from chainlit.config import ChainlitConfig, config
 from chainlit.context import init_ws_context
 from chainlit.data import get_data_layer
 from chainlit.logger import logger
 from chainlit.message import ErrorMessage, Message
 from chainlit.server import sio
-from chainlit.session import WebsocketSession
-from chainlit.types import InputAudioChunk, InputAudioChunkPayload, MessagePayload
+from chainlit.session import ClientType, WebsocketSession
+from chainlit.types import (
+    InputAudioChunk,
+    InputAudioChunkPayload,
+    MessagePayload,
+)
 from chainlit.user import PersistedUser, User
 from chainlit.user_session import user_sessions
 
 WSGIEnvironment: TypeAlias = dict[str, Any]
 
 
-def restore_existing_session(sid, session_id, emit_fn, emit_call_fn):
+class WebSocketSessionAuth(TypedDict):
+    sessionId: str
+    userEnv: str | None
+    clientType: ClientType
+    chatProfile: str | None
+    threadId: str | None
+
+
+def restore_existing_session(sid, session_id, emit_fn, emit_call_fn, environ):
     """Restore a session from the sessionId provided by the client."""
     if session := WebsocketSession.get_by_id(session_id):
         session.restore(new_socket_id=sid)
         session.emit = emit_fn
         session.emit_call = emit_call_fn
+        session.environ = environ
         return True
     return False
 
@@ -89,16 +102,15 @@ def _get_token_from_cookie(environ: WSGIEnvironment) -> Optional[str]:
     return None
 
 
-def _get_token(environ: WSGIEnvironment, auth: dict) -> Optional[str]:
+def _get_token(environ: WSGIEnvironment) -> Optional[str]:
     """Take WSGI environ, return access token."""
     return _get_token_from_cookie(environ)
 
 
 async def _authenticate_connection(
-    environ,
-    auth,
+    environ: WSGIEnvironment,
 ) -> Union[Tuple[Union[User, PersistedUser], str], Tuple[None, None]]:
-    if token := _get_token(environ, auth):
+    if token := _get_token(environ):
         user = await get_current_user(token=token)
         if user:
             return user, token
@@ -107,18 +119,27 @@ async def _authenticate_connection(
 
 
 @sio.on("connect")  # pyright: ignore [reportOptionalCall]
-async def connect(sid, environ, auth):
-    user = token = None
+async def connect(sid: str, environ: WSGIEnvironment, auth: WebSocketSessionAuth):
+    user: User | PersistedUser | None = None
+    token: str | None = None
+    thread_id = auth.get("threadId", None)
 
     if require_login():
         try:
-            user, token = await _authenticate_connection(environ, auth)
+            user, token = await _authenticate_connection(environ)
         except Exception as e:
             logger.exception("Exception authenticating connection: %s", e)
 
         if not user:
             logger.error("Authentication failed in websocket connect.")
             raise ConnectionRefusedError("authentication failed")
+
+        if thread_id:
+            if data_layer := get_data_layer():
+                thread = await data_layer.get_thread(thread_id)
+                if thread and not (thread["userIdentifier"] == user.identifier):
+                    logger.error("Authorization for the thread failed.")
+                    raise ConnectionRefusedError("authorization failed")
 
     # Session scoped function to emit to the client
     def emit_fn(event, data):
@@ -128,15 +149,15 @@ async def connect(sid, environ, auth):
     def emit_call_fn(event: Literal["ask", "call_fn"], data, timeout):
         return sio.call(event, data, timeout=timeout, to=sid)
 
-    session_id = auth.get("sessionId")
-    if restore_existing_session(sid, session_id, emit_fn, emit_call_fn):
+    session_id = auth["sessionId"]
+    if restore_existing_session(sid, session_id, emit_fn, emit_call_fn, environ):
         return True
 
-    user_env_string = auth.get("userEnv")
+    user_env_string = auth.get("userEnv", None)
     user_env = load_user_env(user_env_string)
 
-    client_type = auth.get("clientType")
-    url_encoded_chat_profile = auth.get("chatProfile")
+    client_type = auth["clientType"]
+    url_encoded_chat_profile = auth.get("chatProfile", None)
     chat_profile = (
         unquote(url_encoded_chat_profile) if url_encoded_chat_profile else None
     )
@@ -151,7 +172,7 @@ async def connect(sid, environ, auth):
         user=user,
         token=token,
         chat_profile=chat_profile,
-        thread_id=auth.get("threadId"),
+        thread_id=thread_id,
         environ=environ,
     )
 
@@ -166,7 +187,10 @@ async def connection_successful(sid):
     await context.emitter.clear("clear_ask")
     await context.emitter.clear("clear_call_fn")
 
-    if context.session.restored:
+    if context.session.restored and not context.session.has_first_interaction:
+        if config.code.on_chat_start:
+            task = asyncio.create_task(config.code.on_chat_start())
+            context.session.current_task = task
         return
 
     if context.session.thread_id_to_resume and config.code.on_chat_resume:
@@ -298,6 +322,61 @@ async def edit_message(sid, payload: MessagePayload):
             await context.emitter.task_end()
 
 
+@sio.on("message_favorite")  # pyright: ignore [reportOptionalCall]
+async def message_favorite(sid, payload: MessagePayload):
+    """Handle a message favorite toggle."""
+    session = WebsocketSession.require(sid)
+    context = init_ws_context(session)
+    data_layer = get_data_layer()
+
+    if not config.features.favorites or not session.user:
+        return
+
+    payload_message = payload["message"]
+    payload_metadata = payload_message.get("metadata") or {}
+    favorite = bool(payload_metadata.get("favorite", False))
+
+    step_dict = None
+
+    if favorite:
+        for message in chat_context.get():
+            if message.id == payload_message["id"]:
+                message.metadata = message.metadata or {}
+                message.metadata["favorite"] = favorite
+                step_dict = message.to_dict()
+                break
+    elif data_layer:
+        favorites = await data_layer.get_favorite_steps(session.user.id)
+        for fav in favorites:
+            if fav["id"] == payload_message["id"]:
+                step_dict = fav
+                break
+
+    if step_dict is None:
+        logger.error("Could not find step to update favorite status.")
+        return
+
+    created_at = step_dict.get("createdAt")
+    if created_at and not created_at.endswith("Z"):
+        step_dict["createdAt"] = f"{created_at}Z"
+
+    if data_layer:
+        step_dict = await data_layer.set_step_favorite(step_dict, favorite)
+
+    await context.emitter.update_step(step_dict)
+    await fetch_favorites(sid)
+
+
+@sio.on("fetch_favorites")  # pyright: ignore [reportOptionalCall]
+async def fetch_favorites(sid):
+    session = WebsocketSession.require(sid)
+    context = init_ws_context(session)
+    if session.user and config.features.favorites:
+        if data_layer := get_data_layer():
+            favorites = await data_layer.get_favorite_steps(session.user.id)
+            await context.emitter.set_favorites(favorites)
+
+
 @sio.on("client_message")  # pyright: ignore [reportOptionalCall]
 async def message(sid, payload: MessagePayload):
     """Handle a message sent by the User."""
@@ -326,7 +405,9 @@ async def audio_start(sid):
     session = WebsocketSession.require(sid)
 
     context = init_ws_context(session)
-    if config.code.on_audio_start:
+    config: ChainlitConfig = session.get_config()  # type: ignore
+
+    if config.features.audio and config.features.audio.enabled:
         connected = bool(await config.code.on_audio_start())
         connection_state = "on" if connected else "off"
         await context.emitter.update_audio_connection(connection_state)
@@ -339,7 +420,13 @@ async def audio_chunk(sid, payload: InputAudioChunkPayload):
 
     init_ws_context(session)
 
-    if config.code.on_audio_chunk:
+    config: ChainlitConfig = session.get_config()
+
+    if (
+        config.features.audio
+        and config.features.audio.enabled
+        and config.code.on_audio_chunk
+    ):
         asyncio.create_task(config.code.on_audio_chunk(InputAudioChunk(**payload)))
 
 
@@ -347,6 +434,7 @@ async def audio_chunk(sid, payload: InputAudioChunkPayload):
 async def audio_end(sid):
     """Handle the end of the audio stream."""
     session = WebsocketSession.require(sid)
+
     try:
         context = init_ws_context(session)
         await context.emitter.task_start()
@@ -355,7 +443,9 @@ async def audio_end(sid):
             session.has_first_interaction = True
             asyncio.create_task(context.emitter.init_thread("audio"))
 
-        if config.code.on_audio_end:
+        config: ChainlitConfig = session.get_config()  # type: ignore
+
+        if config.features.audio and config.features.audio.enabled:
             await config.code.on_audio_end()
 
     except asyncio.CancelledError:
@@ -379,3 +469,12 @@ async def change_settings(sid, settings: Dict[str, Any]):
 
     if config.code.on_settings_update:
         await config.code.on_settings_update(settings)
+
+
+@sio.on("chat_settings_edit")
+async def edit_settings(sid, settings: Dict[str, Any]):
+    """Handle change settings edit from the UI (on the fly)."""
+    init_ws_context(sid)
+
+    if config.code.on_settings_edit:
+        await config.code.on_settings_edit(settings)
